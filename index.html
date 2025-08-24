@@ -152,11 +152,13 @@
     </div>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/TransformControls.js"></script>
     <script>
         // Game variables
         let scene, camera, renderer, world;
         let jengaBlocks = [];
         let selectedBlock = null;
+        let transformControls;
         let mouse = new THREE.Vector2();
         let raycaster = new THREE.Raycaster();
         
@@ -208,6 +210,13 @@
 
             // Create ground
             createGround();
+
+            // Setup transform controls for block movement visualization
+            transformControls = new THREE.TransformControls(camera, renderer.domElement);
+            transformControls.setMode('translate');
+            transformControls.enabled = false;
+            transformControls.visible = false;
+            scene.add(transformControls);
 
             // Build Jenga tower
             buildJengaTower();
@@ -366,19 +375,19 @@
             if (intersects.length > 0 && !gameState.isGameOver) {
                 // Deselect previous block
                 if (selectedBlock) {
-                    selectedBlock.material.emissive.setHex(0x000000);
+                    returnBlockToPosition(selectedBlock);
                 }
-                
+
                 // Select new block
                 selectedBlock = intersects[0].object;
                 selectedBlock.material.emissive.setHex(0x444444);
                 selectedBlock.userData.currentOffset = new THREE.Vector3(0, 0, 0);
+                transformControls.attach(selectedBlock);
+                transformControls.visible = true;
                 document.getElementById('status').textContent = 'Block Selected - Use WASD to move';
             } else if (selectedBlock) {
                 // Deselect if clicking empty space
-                selectedBlock.material.emissive.setHex(0x000000);
-                selectedBlock = null;
-                document.getElementById('status').textContent = 'Ready to Play';
+                returnBlockToPosition(selectedBlock);
             }
         }
 
@@ -476,6 +485,19 @@
             updateCameraPosition();
         }
 
+        function checkCollision(block) {
+            const blockBox = new THREE.Box3().setFromObject(block);
+            for (const otherBlock of jengaBlocks) {
+                if (otherBlock !== block && !otherBlock.userData.isRemoved) {
+                    const otherBox = new THREE.Box3().setFromObject(otherBlock);
+                    if (blockBox.intersectsBox(otherBox)) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
         function updateBlockMovement() {
             if (!selectedBlock || selectedBlock.userData.isRemoved || gameState.isGameOver) return;
 
@@ -489,6 +511,7 @@
 
             let moved = false;
             const currentOffset = selectedBlock.userData.currentOffset;
+            const previousOffset = currentOffset.clone();
 
             // WASD movement
             if (keys.w) {
@@ -526,12 +549,12 @@
             // Apply movement
             if (moved) {
                 selectedBlock.position.copy(selectedBlock.userData.originalPosition).add(currentOffset);
-                
-                // Check if block should be auto-removed when pulled far enough
-                const distance = currentOffset.length();
-                if (distance > 1.8) {
-                    removeBlock(selectedBlock);
+                // Prevent clipping with other blocks
+                if (checkCollision(selectedBlock)) {
+                    currentOffset.copy(previousOffset);
+                    selectedBlock.position.copy(selectedBlock.userData.originalPosition).add(currentOffset);
                 }
+                // Player retains control; block will not be auto-removed
             }
         }
 
@@ -539,9 +562,14 @@
             if (!block || block.userData.isRemoved) return;
 
             const distance = block.userData.currentOffset ? block.userData.currentOffset.length() : 0;
-            
+
             if (distance > 0.8) {
+                block.material.emissive.setHex(0x000000);
                 removeBlock(block);
+                transformControls.detach();
+                transformControls.visible = false;
+                selectedBlock = null;
+                document.getElementById('status').textContent = 'Ready to Play';
             } else {
                 // Return to original position
                 returnBlockToPosition(block);
@@ -550,10 +578,12 @@
 
         function returnBlockToPosition(block) {
             if (!block) return;
-            
+
             block.material.emissive.setHex(0x000000);
             block.position.copy(block.userData.originalPosition);
             block.userData.currentOffset = new THREE.Vector3(0, 0, 0);
+            transformControls.detach();
+            transformControls.visible = false;
             selectedBlock = null;
             document.getElementById('status').textContent = 'Ready to Play';
         }
@@ -666,39 +696,31 @@
 
         function simulateBlockPhysics(physicsBlock) {
             const block = physicsBlock.mesh;
-            
-            if (block.userData.isRemoved) return;
 
-            // Simple physics simulation
-            let hasSupport = false;
-            
-            // Check if block has support below it
+            // Skip physics for the block currently being controlled by the player
+            if (block.userData.isRemoved || block === selectedBlock) return;
+
+            // Apply simple gravity
+            physicsBlock.velocity.y += physicsWorld.gravity * physicsWorld.timeStep;
+            block.position.y += physicsBlock.velocity.y * physicsWorld.timeStep;
+
+            // Ground collision
+            if (block.position.y <= 0.125) {
+                block.position.y = 0.125;
+                physicsBlock.velocity.y = 0;
+            }
+
+            // Collision with other blocks
+            const blockBox = new THREE.Box3().setFromObject(block);
             jengaBlocks.forEach(otherBlock => {
                 if (otherBlock !== block && !otherBlock.userData.isRemoved) {
-                    const distance = block.position.distanceTo(otherBlock.position);
-                    const verticalDistance = Math.abs(block.position.y - otherBlock.position.y);
-                    
-                    if (distance < 1.5 && otherBlock.position.y < block.position.y && verticalDistance < 0.3) {
-                        hasSupport = true;
+                    const otherBox = new THREE.Box3().setFromObject(otherBlock);
+                    if (blockBox.intersectsBox(otherBox) && block.position.y > otherBlock.position.y) {
+                        block.position.y = otherBox.max.y + 0.125;
+                        physicsBlock.velocity.y = 0;
                     }
                 }
             });
-
-            // If no support, apply gravity
-            if (!hasSupport && block.position.y > 0.5) {
-                physicsBlock.velocity.y += physicsWorld.gravity * physicsWorld.timeStep;
-                block.position.y += physicsBlock.velocity.y * physicsWorld.timeStep;
-                
-                // Add some random rotation for falling blocks
-                block.rotation.x += (Math.random() - 0.5) * 0.1;
-                block.rotation.z += (Math.random() - 0.5) * 0.1;
-                
-                // Ground collision
-                if (block.position.y <= 0.125) {
-                    block.position.y = 0.125;
-                    physicsBlock.velocity.y = 0;
-                }
-            }
         }
 
         function updateCameraPosition() {
