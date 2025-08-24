@@ -526,12 +526,7 @@
             // Apply movement
             if (moved) {
                 selectedBlock.position.copy(selectedBlock.userData.originalPosition).add(currentOffset);
-                
-                // Check if block should be auto-removed when pulled far enough
-                const distance = currentOffset.length();
-                if (distance > 1.8) {
-                    removeBlock(selectedBlock);
-                }
+                // Player retains control; block will not be auto-removed
             }
         }
 
@@ -666,8 +661,9 @@
 
         function simulateBlockPhysics(physicsBlock) {
             const block = physicsBlock.mesh;
-            
-            if (block.userData.isRemoved) return;
+
+            // Skip physics for the block currently being controlled by the player
+            if (block.userData.isRemoved || block === selectedBlock) return;
 
             // Simple physics simulation
             let hasSupport = false;
