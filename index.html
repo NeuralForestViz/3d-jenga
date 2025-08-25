@@ -154,6 +154,7 @@
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/three@0.128/examples/js/controls/TransformControls.js"></script>
+    <script src="keyboard.js"></script>
     <script>
         // Game variables
         let scene, camera, renderer, world;
@@ -162,12 +163,7 @@
         let transformControls;
         let mouse = new THREE.Vector2();
         let raycaster = new THREE.Raycaster();
-        
-        // Keyboard controls
-        let keys = {
-            w: false, a: false, s: false, d: false,
-            space: false, ctrl: false, x: false
-        };
+
         let cameraControls = {
             isRotating: false,
             isPanning: false,
@@ -332,6 +328,7 @@
             canvas.addEventListener('wheel', onMouseWheel);
             canvas.addEventListener('click', onMouseClick);
 
+
             // Keyboard events (use capture phase to avoid TransformControls blocking)
             window.addEventListener('keydown', onKeyDown, true);
             window.addEventListener('keyup', onKeyUp, true);
@@ -441,42 +438,6 @@
         function onMouseUp(event) {
             cameraControls.isRotating = false;
             cameraControls.isPanning = false;
-        }
-
-        function onKeyDown(event) {
-            const key = event.key.toLowerCase();
-            
-            switch(key) {
-                case 'w': keys.w = true; break;
-                case 'a': keys.a = true; break;
-                case 's': keys.s = true; break;
-                case 'd': keys.d = true; break;
-                case ' ': 
-                    event.preventDefault(); 
-                    keys.space = true; 
-                    break;
-                case 'control': keys.ctrl = true; break;
-                case 'x': 
-                    keys.x = true;
-                    if (selectedBlock) {
-                        dropBlock(selectedBlock);
-                    }
-                    break;
-            }
-        }
-
-        function onKeyUp(event) {
-            const key = event.key.toLowerCase();
-            
-            switch(key) {
-                case 'w': keys.w = false; break;
-                case 'a': keys.a = false; break;
-                case 's': keys.s = false; break;
-                case 'd': keys.d = false; break;
-                case ' ': keys.space = false; break;
-                case 'control': keys.ctrl = false; break;
-                case 'x': keys.x = false; break;
-            }
         }
 
         function onMouseWheel(event) {
