@@ -698,6 +698,10 @@
         function simulateBlockPhysics(physicsBlock) {
             const block = physicsBlock.mesh;
 
+
+            // Skip physics for the block currently being controlled by the player
+            if (block.userData.isRemoved || block === selectedBlock) return;
+
             // Skip physics for blocks under player control to avoid premature falling
             if (block.userData.isRemoved || block === selectedBlock) return;
 
