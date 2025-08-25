@@ -555,7 +555,7 @@
                     currentOffset.copy(previousOffset);
                     selectedBlock.position.copy(selectedBlock.userData.originalPosition).add(currentOffset);
                 }
-                // Player retains control; block will not fall until dropped
+                // Player retains control; block won't fall or be removed until dropped
             }
         }
 
@@ -698,7 +698,7 @@
         function simulateBlockPhysics(physicsBlock) {
             const block = physicsBlock.mesh;
 
-            // Skip physics for the block currently being controlled by the player
+            // Skip physics for blocks under player control to avoid premature falling
             if (block.userData.isRemoved || block === selectedBlock) return;
 
             // Apply simple gravity
