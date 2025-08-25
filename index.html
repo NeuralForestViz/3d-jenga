@@ -332,9 +332,9 @@
             canvas.addEventListener('wheel', onMouseWheel);
             canvas.addEventListener('click', onMouseClick);
 
-            // Keyboard events
-            document.addEventListener('keydown', onKeyDown);
-            document.addEventListener('keyup', onKeyUp);
+            // Keyboard events (use capture phase to avoid TransformControls blocking)
+            window.addEventListener('keydown', onKeyDown, true);
+            window.addEventListener('keyup', onKeyUp, true);
 
             // UI events
             document.getElementById('resetBtn').addEventListener('click', resetGame);
